@@ -1,0 +1,48 @@
+# Ignora todo en la raíz del repo
+*
+
+# Mantiene este archivo versionado
+!.gitignore
+!README.md
+
+# Solo incluye estas carpetas
+!frontend/
+!frontend/**
+!backend/
+!backend/**
+!debug/
+!debug/**
+!scripts/
+!scripts/**
+
+# Excepciones dentro de debug
+debug/venv/
+debug/interceptor_650_2018.pdf
+
+# Excepciones Python en backend
+backend/__pycache__/
+backend/**/*.pyc
+
+# Reglas de frontend (consolidadas desde frontend/.gitignore)
+frontend/logs
+frontend/*.log
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+frontend/pnpm-debug.log*
+frontend/lerna-debug.log*
+
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+frontend/*.local
+
+frontend/.vscode/*
+!frontend/.vscode/extensions.json
+frontend/.idea
+frontend/.DS_Store
+frontend/*.suo
+frontend/*.ntvs*
+frontend/*.njsproj
+frontend/*.sln
+frontend/*.sw?

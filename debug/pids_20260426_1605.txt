@@ -1,0 +1,49 @@
+Conectando a ELM327 en 192.168.0.10:35000...
+Conexión TCP OK.
+
+=== Handshake ===
+ATZ : ELM327 v1.5
+ATE0: OK
+ATL0: OK
+ATH0: OK
+ATS0: OK
+ATSP0 (auto-detect): OK
+ATRV (voltaje): 11.9V
+
+=== Consultando bitmaps de PIDs soportados ===
+  0100: bitmap = B7BEC011 → 16 PIDs en rango
+  0120: bitmap = 80000001 → 2 PIDs en rango
+  0140: bitmap = 00000010 → 1 PIDs en rango
+  → PID 60 no soportado, no hay más rangos
+
+======================================================================
+PIDs SOPORTADOS POR LA ECU (19 total)
+======================================================================
+
+PID  Cmd    Descripción                                            
+----------------------------------------------------------------------
+01   0101    Monitor status since DTCs cleared
+03   0103    Fuel system status
+04   0104    Calculated engine load (%) ⭐
+06   0106    Short term fuel trim Bank 1 (%)
+07   0107    Long term fuel trim Bank 1 (%)
+08   0108    Short term fuel trim Bank 2 (%)
+09   0109    Long term fuel trim Bank 2 (%)
+0B   010B    Intake manifold abs. pressure / MAP (kPa) ⭐
+0C   010C    Engine RPM ⭐
+0D   010D    Vehicle speed (km/h) ⭐
+0E   010E    Timing advance (°)
+0F   010F    Intake air temperature / IAT (°C) ⭐
+11   0111    Throttle position / TPS (%) ⭐
+12   0112    Commanded secondary air status
+1C   011C    OBD standards conformance
+20   0120    PIDs supported [21-40]
+21   0121    Distance with MIL on (km) ⭐
+40   0140    PIDs supported [41-60]
+5C   015C    Engine oil temperature / EOT (°C) ⭐
+
+⭐ = útil para nuestro objetivo
+
+Leyenda de PIDs prioritarios:
+  RPM=0C  Speed=0D  TPS=11  MAP=0B  IAT=0F  EOT=5C
+  FuelRate=5E (consumo L/h)  CtrlVoltage=42  AmbAir=46

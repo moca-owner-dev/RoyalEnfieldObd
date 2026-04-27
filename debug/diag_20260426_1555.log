@@ -1,0 +1,61 @@
+Conectando a ELM327 en 192.168.0.10:35000...
+Conexión TCP OK.
+
+=== Handshake ELM327 ===
+ATZ (reset)     : ELM327 v1.5
+ATE0 (no echo)  : OK
+ATL0 (no LF)    : OK
+ATH1 (headers)  : OK
+ATS0 (no spaces): OK
+ATI (versión)   : ELM327 v1.5
+ATRV (voltaje)  : 11.8V
+  ✓ Cable adaptador alimentando correctamente.
+
+=== Auto-detect (ATSP0) ===
+ATSP0           : OK
+0100            : SEARCHING...
+7E8064100B7BEC011
+ATDP            : AUTO, ISO 15765-4 (CAN 11/500)
+
+=== Auto-detect falló. Probando protocolos forzados ===
+
+--- Protocolo 3: ISO 9141-2 (K-line) ---
+  ATSP3: OK
+  0100   : BUS INIT: ...ERROR
+  ATDP   : ISO 9141-2
+
+--- Protocolo 4: ISO 14230-4 KWP slow init ---
+  ATSP4: OK
+  0100   : BUS INIT: ...ERROR
+  ATDP   : ISO 14230-4 (KWP 5BAUD)
+
+--- Protocolo 5: ISO 14230-4 KWP fast init ---
+  ATSP5: OK
+  0100   : BUS INIT: ...ERROR
+  ATDP   : ISO 14230-4 (KWP FAST)
+
+--- Protocolo 6: ISO 15765-4 CAN 11-bit/500k ---
+  ATSP6: OK
+  0100   : NO DATA
+  ATDP   : ISO 15765-4 (CAN 11/500)
+
+--- Protocolo 7: ISO 15765-4 CAN 29-bit/500k ---
+  ATSP7: OK
+  0100   : NO DATA
+  ATDP   : ISO 15765-4 (CAN 29/500)
+
+--- Protocolo 8: ISO 15765-4 CAN 11-bit/250k ---
+  ATSP8: OK
+  0100   : NO DATA
+  ATDP   : ISO 15765-4 (CAN 11/250)
+
+--- Protocolo 9: ISO 15765-4 CAN 29-bit/250k ---
+  ATSP9: OK
+  0100   : NO DATA
+  ATDP   : ISO 15765-4 (CAN 29/250)
+
+==================================================
+❌ Ningún protocolo OBD2 estándar respondió.
+Confirma que el Interceptor 650 NO es OBD2 compliant.
+Necesitás hardware/software específico de Royal Enfield.
+==================================================
