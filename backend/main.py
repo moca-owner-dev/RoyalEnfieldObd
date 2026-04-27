@@ -12,6 +12,7 @@ En producción (sirviendo el dist/ del frontend):
     uvicorn main:app --port 8000
 """
 
+import math
 import os
 import time
 import threading
@@ -32,6 +33,10 @@ from obd import (
     decode_pid,
     estimate_gear,
     calc_fuel_lh,
+    GEAR_RATIOS,
+    PRIMARY_RATIO,
+    SECONDARY_RATIO,
+    TIRE_CIRCUM_M,
 )
 
 # -----------------------------------------------------------------------------
@@ -72,6 +77,7 @@ VE = float(os.getenv("VE", "0.85"))
 POLL_INTERVAL = float(os.getenv("POLL_INTERVAL", "0.5"))
 LOG_DIR = Path(os.getenv("LOG_DIR", "../logs"))
 STALE_AFTER_SECONDS = 2.0  # si no llegan datos nuevos en 2s, marcamos disconnected
+MOCK_OBD = os.getenv("MOCK_OBD", "0") == "1"
 
 
 # -----------------------------------------------------------------------------
@@ -173,12 +179,115 @@ def _poll_loop():
 
 
 # -----------------------------------------------------------------------------
+# Mock poller (datos sintéticos para dev sin moto)
+# -----------------------------------------------------------------------------
+def _mock_values(elapsed: float):
+    """Devuelve (rpm, speed, tps, map, iat, eot, load) sintéticos.
+    Ciclo de 60s: idle → aceleración → crucero → frenada → stop."""
+    cycle = elapsed % 60.0
+
+    if cycle < 5.0:
+        throttle, speed = 0.0, 0.0
+    elif cycle < 20.0:
+        t = (cycle - 5.0) / 15.0
+        throttle = 0.65 + 0.05 * math.sin(cycle * 3)
+        speed = 90.0 * t
+    elif cycle < 40.0:
+        throttle = 0.25 + 0.05 * math.sin(cycle * 2)
+        speed = 85.0 + 3.0 * math.sin(cycle * 1.5)
+    elif cycle < 55.0:
+        t = (cycle - 40.0) / 15.0
+        throttle = 0.05
+        speed = 85.0 * (1 - t)
+    else:
+        throttle, speed = 0.0, 0.0
+
+    if speed < 3.0:
+        rpm = 950.0 + 30.0 * math.sin(elapsed * 4)
+    else:
+        if speed < 25: gear = 2
+        elif speed < 40: gear = 3
+        elif speed < 60: gear = 4
+        elif speed < 80: gear = 5
+        else: gear = 6
+        wheel_rpm = (speed / 3.6) / TIRE_CIRCUM_M * 60.0
+        rpm = wheel_rpm * GEAR_RATIOS[gear] * PRIMARY_RATIO * SECONDARY_RATIO
+
+    tps = throttle * 100.0
+    map_kpa = 25.0 + throttle * 70.0
+    load = throttle * 95.0
+    iat = 28.0
+    eot = min(90.0, 60.0 + elapsed / 2.0)
+    return rpm, speed, tps, map_kpa, iat, eot, load
+
+
+def _mock_loop():
+    global _csv_writer, _csv_file
+
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    log_path = LOG_DIR / f"ride_{datetime.now().strftime('%Y%m%d_%H%M%S')}_MOCK.csv"
+    _csv_file = open(log_path, "w", newline="")
+    _csv_writer = csv.writer(_csv_file)
+    _csv_writer.writerow([
+        "timestamp", "rpm", "speed", "tps", "map", "iat", "eot",
+        "load", "voltage", "fuel_lh", "gear",
+    ])
+    print(f"[mock] datos sintéticos, CSV log: {log_path.resolve()}")
+
+    t_start = time.time()
+    while not _stop_event.is_set():
+        now = time.time()
+        elapsed = now - t_start
+        rpm, speed, tps, map_kpa, iat, eot, load = _mock_values(elapsed)
+        voltage = 13.8 + 0.2 * math.sin(elapsed / 5)
+
+        with _state_lock:
+            _state["rpm"] = rpm
+            _state["speed"] = speed
+            _state["tps"] = tps
+            _state["map"] = map_kpa
+            _state["iat"] = iat
+            _state["eot"] = eot
+            _state["load"] = load
+            _state["voltage"] = voltage
+            _state["last_update"] = now
+            _state["connected"] = True
+            _state["fuel_lh"] = calc_fuel_lh(map_kpa, rpm, iat, VE)
+            _state["gear"] = estimate_gear(rpm, speed)
+            dt_h = (now - _session["_last_t"]) / 3600
+            _session["v_max"] = max(_session["v_max"], speed)
+            _session["rpm_max"] = max(_session["rpm_max"], rpm)
+            _session["eot_max"] = max(_session["eot_max"], eot)
+            _session["fuel_total_l"] += _state["fuel_lh"] * dt_h
+            _session["_last_t"] = now
+
+        ts = datetime.now().strftime("%H:%M:%S")
+        with _state_lock:
+            row = [
+                ts, f"{_state['rpm']:.0f}", f"{_state['speed']:.0f}",
+                f"{_state['tps']:.2f}", f"{_state['map']:.1f}",
+                f"{_state['iat']:.1f}", f"{_state['eot']:.1f}",
+                f"{_state['load']:.2f}", f"{_state['voltage']:.2f}",
+                f"{_state['fuel_lh']:.3f}", _state["gear"] or "",
+            ]
+        _csv_writer.writerow(row)
+        _csv_file.flush()
+
+        _stop_event.wait(POLL_INTERVAL)
+
+    if _csv_file:
+        _csv_file.close()
+    print("[mock] terminado")
+
+
+# -----------------------------------------------------------------------------
 # FastAPI app
 # -----------------------------------------------------------------------------
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global _poll_thread
-    _poll_thread = threading.Thread(target=_poll_loop, daemon=True)
+    target = _mock_loop if MOCK_OBD else _poll_loop
+    _poll_thread = threading.Thread(target=target, daemon=True)
     _poll_thread.start()
     yield
     _stop_event.set()
