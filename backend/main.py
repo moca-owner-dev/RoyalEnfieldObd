@@ -391,11 +391,9 @@ def reset_session():
 # -----------------------------------------------------------------------------
 DIST_DIR = Path(__file__).parent.parent / "frontend" / "dist"
 if DIST_DIR.exists():
-    app.mount("/assets", StaticFiles(directory=DIST_DIR / "assets"), name="assets")
-
-    @app.get("/")
-    def root_index():
-        return FileResponse(DIST_DIR / "index.html")
+    # Montamos todo dist/ en raíz: sirve index.html, assets/, favicon.svg, logos, etc.
+    # Las rutas /api/* registradas arriba tienen prioridad por orden de registro.
+    app.mount("/", StaticFiles(directory=DIST_DIR, html=True), name="spa")
 else:
     @app.get("/")
     def root_dev():
