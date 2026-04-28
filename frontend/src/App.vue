@@ -1,208 +1,348 @@
 <script setup>
 import { computed } from 'vue'
 import { useObdData } from './composables/useObdData'
-import Speedometer from './components/Speedometer.vue'
-import Tachometer from './components/Tachometer.vue'
-import GearDisplay from './components/GearDisplay.vue'
-import TempGauge from './components/TempGauge.vue'
-import VoltageIndicator from './components/VoltageIndicator.vue'
-import AlertsPanel from './components/AlertsPanel.vue'
-import SessionStats from './components/SessionStats.vue'
 import logoLargo from './assets/logo_largo.webp'
 
-const { data, session, healthy, resetSession } = useObdData(500)
+const { data, session, tank, healthy, markTankFull } = useObdData(500)
 
-const connectionState = computed(() => {
-  if (!healthy.value) return { label: 'Backend offline', color: 'var(--c-danger)' }
+const SPEED_MAX = 200
+const RPM_MAX = 8500
+const RPM_REDLINE = 7000
+
+const speedPct = computed(() => Math.min(100, (data.value.speed / SPEED_MAX) * 100))
+const rpmPct = computed(() => Math.min(100, (data.value.rpm / RPM_MAX) * 100))
+const inRedline = computed(() => data.value.rpm >= RPM_REDLINE)
+
+const conn = computed(() => {
+  if (!healthy.value) return { label: 'Backend offline', cls: 'is-danger' }
   if (!data.value.connected) {
-    const stale = data.value.stale_seconds
-    if (stale !== null && stale !== undefined) {
-      return { label: `Sin datos hace ${stale.toFixed(0)}s`, color: 'var(--c-warn)' }
-    }
-    return { label: 'Dongle desconectado', color: 'var(--c-warn)' }
+    const s = data.value.stale_seconds
+    if (s != null) return { label: `Sin datos ${s.toFixed(0)}s`, cls: 'is-warn' }
+    return { label: 'Dongle desconectado', cls: 'is-warn' }
   }
-  return { label: 'Conectado', color: 'var(--c-success)' }
+  return { label: 'Conectado', cls: 'is-ok' }
 })
+
+// EOT zonas para color
+const eotClass = computed(() => {
+  const v = data.value.eot
+  if (v < 60) return 'cool'
+  if (v <= 105) return 'normal'
+  if (v <= 115) return 'warn'
+  return 'danger'
+})
+const voltClass = computed(() => {
+  const v = data.value.voltage
+  if (!data.value.connected) return 'muted'
+  if (v < 12.0) return 'danger'
+  if (v < 13.0) return 'warn'
+  return 'normal'
+})
+
+function fmt(v, digits = 0, dash = '—') {
+  if (v == null || isNaN(v)) return dash
+  return Number(v).toFixed(digits)
+}
 </script>
 
 <template>
-  <div class="app">
+  <div class="dash">
     <header class="topbar">
-      <div class="brand">
-        <img :src="logoLargo" alt="Royal Enfield" class="brand-logo" />
-      </div>
-      <div class="status">
-        <span class="dot" :style="{ background: connectionState.color }" />
-        {{ connectionState.label }}
+      <img :src="logoLargo" alt="Royal Enfield" class="brand" />
+      <div class="status" :class="conn.cls">
+        <span class="dot" />
+        <span class="lbl">{{ conn.label }}</span>
       </div>
     </header>
 
-    <main class="grid" :class="{ 'is-stale': !data.connected }">
-      <!-- Fila 1: gauges principales -->
-      <div class="cell speedometer"><Speedometer :speed="data.speed" /></div>
-      <div class="cell gear"><GearDisplay :gear="data.gear" :speed="data.speed" :rpm="data.rpm" /></div>
-      <div class="cell tachometer"><Tachometer :rpm="data.rpm" /></div>
-
-      <!-- Fila 2: motor / temp / voltaje -->
-      <div class="cell">
-        <TempGauge label="ACEITE (EOT)" :value="data.eot" :max="140"
-                   :cold="60" :normal="105" :warning="115" :danger="125" />
-      </div>
-      <div class="cell">
-        <TempGauge label="AIRE (IAT)" :value="data.iat" :max="60"
-                   :cold="0" :normal="40" :warning="50" :danger="60" />
-      </div>
-      <div class="cell">
-        <VoltageIndicator :voltage="data.voltage" :rpm="data.rpm" />
-      </div>
-
-      <!-- Fila 3: throttle/load/MAP en grid pequeño -->
-      <div class="cell strip">
-        <div class="strip-item">
-          <div class="strip-label">THROTTLE</div>
-          <div class="strip-val">{{ data.tps.toFixed(1) }}<span>%</span></div>
+    <main class="grid" :class="{ stale: !data.connected }">
+      <!-- VELOCIDAD: prioridad 1, dominante -->
+      <section class="cell speed">
+        <div class="micro">VELOCIDAD</div>
+        <div class="big">
+          <span class="num">{{ fmt(data.speed, 0, '0') }}</span>
+          <span class="unit">km/h</span>
         </div>
-        <div class="strip-item">
-          <div class="strip-label">CARGA</div>
-          <div class="strip-val">{{ data.load.toFixed(0) }}<span>%</span></div>
+        <div class="bar">
+          <div class="fill" :style="{ width: speedPct + '%' }" />
         </div>
-        <div class="strip-item">
-          <div class="strip-label">MAP</div>
-          <div class="strip-val">{{ data.map.toFixed(0) }}<span>kPa</span></div>
-        </div>
-      </div>
+        <div class="bar-ticks"><span>0</span><span>100</span><span>200</span></div>
+      </section>
 
-      <!-- Fila 4: sesión + alertas -->
-      <div class="cell session-cell">
-        <SessionStats :session="session" :data="data" @reset="resetSession" />
-      </div>
-      <div class="cell alerts-cell">
-        <AlertsPanel :data="data" />
-      </div>
+      <!-- RPM: prioridad 2 -->
+      <section class="cell rpm" :class="{ redline: inRedline }">
+        <div class="micro">RPM</div>
+        <div class="big">
+          <span class="num">{{ fmt(data.rpm, 0, '0') }}</span>
+        </div>
+        <div class="bar">
+          <div class="fill" :style="{ width: rpmPct + '%' }" />
+          <div class="redmark" />
+        </div>
+        <div class="bar-ticks"><span>0</span><span>{{ RPM_REDLINE }}</span><span>{{ RPM_MAX }}</span></div>
+      </section>
+
+      <!-- MARCHA: prioridad 3, no invasiva -->
+      <section class="cell gear">
+        <div class="micro">MARCHA</div>
+        <div class="gear-num">{{ data.gear ?? '–' }}</div>
+      </section>
     </main>
 
-    <footer class="footer">
-      Last update: {{ data.last_update ? new Date(data.last_update * 1000).toLocaleTimeString() : '—' }}
+    <!-- Strip secundario: temps + voltaje + throttle + carga + L/100km -->
+    <section class="strip">
+      <div class="metric" :class="eotClass">
+        <span class="m-lbl">ACEITE</span>
+        <span class="m-val">{{ fmt(data.eot, 0) }}<small>°C</small></span>
+      </div>
+      <div class="metric">
+        <span class="m-lbl">AIRE</span>
+        <span class="m-val">{{ fmt(data.iat, 0) }}<small>°C</small></span>
+      </div>
+      <div class="metric" :class="voltClass">
+        <span class="m-lbl">VOLT</span>
+        <span class="m-val">{{ fmt(data.voltage, 1) }}<small>V</small></span>
+      </div>
+      <div class="metric">
+        <span class="m-lbl">THROTTLE</span>
+        <span class="m-val">{{ fmt(data.tps, 0) }}<small>%</small></span>
+      </div>
+      <div class="metric">
+        <span class="m-lbl">CARGA</span>
+        <span class="m-val">{{ fmt(data.load, 0) }}<small>%</small></span>
+      </div>
+      <div class="metric accent">
+        <span class="m-lbl">L/100km</span>
+        <span class="m-val">{{ fmt(data.fuel_l_100km, 1) }}</span>
+      </div>
+    </section>
+
+    <!-- Footer: tanque + sesión -->
+    <footer class="foot">
+      <button class="tank-btn" @click="markTankFull" title="Marcar tanque lleno">
+        ⛽ Tanque lleno
+      </button>
+      <div class="tank-info">
+        <span><b>{{ fmt(tank.since_fill_l, 2, '0.00') }}</b> L</span>
+        <span>·</span>
+        <span><b>{{ fmt(tank.since_fill_km, 1, '0') }}</b> km</span>
+        <span>·</span>
+        <span>prom <b>{{ fmt(tank.avg_l_100km, 1) }}</b> L/100km</span>
+      </div>
+      <div class="session-info">
+        <span>Sesión <b>{{ fmt(session.elapsed_min, 0) }}</b> min</span>
+        <span>·</span>
+        <span>Vmax <b>{{ fmt(session.v_max, 0) }}</b></span>
+      </div>
     </footer>
   </div>
 </template>
 
 <style scoped>
-.app {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
+.dash {
+  display: grid;
+  grid-template-rows: auto 1fr auto auto;
+  height: 100vh;
+  width: 100vw;
+  padding: 0.4rem 0.6rem;
+  gap: 0.4rem;
   background: var(--c-bg);
-  color: var(--c-fg);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
 }
+
+/* TOPBAR */
 .topbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem 2rem;
-  border-bottom: 1px solid var(--c-border);
+  padding: 0 0.2rem;
 }
 .brand {
-  display: flex;
-  align-items: center;
-}
-.brand-logo {
-  height: 32px;
+  height: 22px;
   width: auto;
-  display: block;
 }
 .status {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  font-size: 0.85rem;
+  gap: 0.4rem;
+  font-size: 0.72rem;
   color: var(--c-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 .dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--c-muted);
 }
+.status.is-ok .dot { background: var(--c-success); }
+.status.is-ok .lbl { color: var(--c-fg); }
+.status.is-warn .dot { background: var(--c-warn); }
+.status.is-warn .lbl { color: var(--c-warn); }
+.status.is-danger .dot { background: var(--c-danger); }
+.status.is-danger .lbl { color: var(--c-danger); }
 
+/* MAIN GRID — SPEED dominante, RPM segundo, GEAR pequeño */
 .grid {
-  flex: 1;
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  grid-template-rows: auto auto auto auto;
-  gap: 1rem;
-  padding: 1rem 2rem;
-  transition: opacity 0.3s, filter 0.3s;
+  grid-template-columns: 1.6fr 1.2fr 0.8fr;
+  gap: 0.5rem;
+  min-height: 0;
 }
-/* Cuando no hay datos frescos: atenuar contenido para que se note
-   que NO es info en vivo. El header queda vivo para mostrar el estado. */
-.grid.is-stale {
-  opacity: 0.4;
-  filter: grayscale(0.6);
-  pointer-events: none;  /* evita interacciones accidentales con datos viejos */
-}
+.grid.stale .cell { opacity: 0.55; }
+
 .cell {
-  display: flex;
-  flex-direction: column;
-}
-.cell > * { flex: 1; }
-
-/* Disposición específica */
-.speedometer { grid-column: 1; grid-row: 1; }
-.gear        { grid-column: 2; grid-row: 1; }
-.tachometer  { grid-column: 3; grid-row: 1; }
-.session-cell { grid-column: 1 / 3; }
-.alerts-cell  { grid-column: 3; }
-
-/* Strip de throttle/load/map */
-.strip {
-  grid-column: 1 / 4;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1rem;
   background: var(--c-panel);
-  border-radius: 10px;
-  padding: 0.8rem 1.2rem;
   border: 1px solid var(--c-border);
-}
-.strip-item {
+  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  justify-content: center;
 }
-.strip-label {
-  font-size: 0.7rem;
+
+.micro {
+  font-size: 0.65rem;
+  letter-spacing: 0.18em;
+  color: var(--c-muted);
+  text-transform: uppercase;
+  margin-bottom: 0.2rem;
+}
+
+.big {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  line-height: 0.95;
+  margin-bottom: 0.4rem;
+}
+.big .num {
+  font-size: clamp(3.2rem, 11vw, 7rem);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+  color: var(--c-fg);
+}
+.big .unit {
+  font-size: 1rem;
+  color: var(--c-muted);
+  text-transform: lowercase;
+  letter-spacing: 0.05em;
+}
+
+/* RPM cell — redline highlight */
+.rpm.redline .num { color: var(--c-danger); }
+.rpm.redline { border-color: var(--c-danger); box-shadow: 0 0 12px rgba(248, 81, 73, 0.25); }
+
+/* GEAR cell — más chico, centrado */
+.gear { align-items: center; justify-content: center; }
+.gear .gear-num {
+  font-size: clamp(3rem, 9vw, 5.5rem);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--c-info);
+  line-height: 1;
+}
+
+/* BAR (gauge horizontal) */
+.bar {
+  position: relative;
+  height: 6px;
+  background: var(--c-bar-bg);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.bar .fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--c-success), var(--c-info));
+  transition: width 0.2s ease-out;
+}
+.rpm .bar .fill { background: linear-gradient(90deg, var(--c-info), var(--c-warn), var(--c-danger)); }
+.rpm .redmark {
+  position: absolute;
+  top: 0; bottom: 0;
+  left: calc(7000 / 8500 * 100%);
+  width: 2px;
+  background: var(--c-danger);
+}
+.bar-ticks {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.6rem;
+  color: var(--c-muted);
+  margin-top: 0.15rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* STRIP secundario — todo en una fila */
+.strip {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 0.4rem;
+  padding: 0.1rem 0;
+}
+.metric {
+  background: var(--c-panel);
+  border: 1px solid var(--c-border);
+  border-radius: 6px;
+  padding: 0.35rem 0.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.m-lbl {
+  font-size: 0.6rem;
   color: var(--c-muted);
   letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
-.strip-val {
-  font-size: 1.6rem;
+.m-val {
+  font-size: 1.05rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  margin-top: 0.2rem;
 }
-.strip-val span {
-  font-size: 0.8rem;
-  color: var(--c-muted);
-  margin-left: 0.2rem;
+.m-val small {
+  font-size: 0.65rem;
   font-weight: 400;
-}
-
-.footer {
-  padding: 0.5rem 2rem;
-  font-size: 0.7rem;
   color: var(--c-muted);
-  text-align: right;
-  border-top: 1px solid var(--c-border);
+  margin-left: 0.1rem;
 }
+.metric.cool .m-val { color: var(--c-info); }
+.metric.normal .m-val { color: var(--c-success); }
+.metric.warn .m-val { color: var(--c-warn); }
+.metric.danger .m-val { color: var(--c-danger); }
+.metric.muted .m-val { color: var(--c-muted); }
+.metric.accent {
+  border-color: var(--c-info);
+}
+.metric.accent .m-val { color: var(--c-info); }
 
-/* Responsive: una columna en celular */
-@media (max-width: 720px) {
-  .grid { grid-template-columns: 1fr; }
-  .speedometer, .gear, .tachometer,
-  .session-cell, .alerts-cell, .strip {
-    grid-column: 1;
-  }
-  .strip { grid-template-columns: repeat(3, 1fr); }
+/* FOOTER (tanque + sesión) */
+.foot {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.1rem;
+  font-size: 0.78rem;
+  color: var(--c-muted);
+  flex-wrap: wrap;
 }
+.tank-btn {
+  background: var(--c-panel);
+  color: var(--c-fg);
+  border: 1px solid var(--c-border);
+  border-radius: 6px;
+  padding: 0.3rem 0.7rem;
+  font-size: 0.78rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.tank-btn:hover { border-color: var(--c-info); color: var(--c-info); }
+.tank-btn:active { background: var(--c-info); color: var(--c-bg); }
+
+.tank-info, .session-info {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+.tank-info b, .session-info b { color: var(--c-fg); font-weight: 700; }
+.session-info { margin-left: auto; }
 </style>
