@@ -64,7 +64,16 @@ _session = {
     "rpm_max": 0.0,
     "eot_max": 0.0,
     "fuel_total_l": 0.0,
+    "km_total": 0.0,
     "_last_t": time.time(),
+}
+
+# Acumuladores desde la última vez que el usuario marcó "tanque lleno".
+# Independiente de la sesión: persiste hasta el próximo POST /api/tank/full.
+_tank = {
+    "since_fill_l": 0.0,
+    "since_fill_km": 0.0,
+    "last_fill_t": None,
 }
 
 _poll_thread: Optional[threading.Thread] = None
@@ -141,12 +150,17 @@ def _poll_loop():
                             _state["map"], _state["rpm"], _state["iat"], VE,
                         )
                         _state["gear"] = estimate_gear(_state["rpm"], _state["speed"])
-                        # Sesión incremental
+                        # Sesión + tanque incrementales
                         dt_h = (now - _session["_last_t"]) / 3600
+                        d_l = _state["fuel_lh"] * dt_h
+                        d_km = _state["speed"] * dt_h
                         _session["v_max"] = max(_session["v_max"], _state["speed"])
                         _session["rpm_max"] = max(_session["rpm_max"], _state["rpm"])
                         _session["eot_max"] = max(_session["eot_max"], _state["eot"])
-                        _session["fuel_total_l"] += _state["fuel_lh"] * dt_h
+                        _session["fuel_total_l"] += d_l
+                        _session["km_total"] += d_km
+                        _tank["since_fill_l"] += d_l
+                        _tank["since_fill_km"] += d_km
                         _session["_last_t"] = now
 
             volt = client.query_voltage()
@@ -278,10 +292,15 @@ def _mock_loop():
             _state["fuel_lh"] = calc_fuel_lh(map_kpa, rpm, iat, VE)
             _state["gear"] = estimate_gear(rpm, speed)
             dt_h = (now - _session["_last_t"]) / 3600
+            d_l = _state["fuel_lh"] * dt_h
+            d_km = speed * dt_h
             _session["v_max"] = max(_session["v_max"], speed)
             _session["rpm_max"] = max(_session["rpm_max"], rpm)
             _session["eot_max"] = max(_session["eot_max"], eot)
-            _session["fuel_total_l"] += _state["fuel_lh"] * dt_h
+            _session["fuel_total_l"] += d_l
+            _session["km_total"] += d_km
+            _tank["since_fill_l"] += d_l
+            _tank["since_fill_km"] += d_km
             _session["_last_t"] = now
 
         ts = datetime.now().strftime("%H:%M:%S")
@@ -356,6 +375,12 @@ def get_data():
     snap["stale_seconds"] = (
         round(time.time() - snap["last_update"], 2) if snap["last_update"] else None
     )
+    # Consumo instantáneo en L/100km. Sólo significativo a velocidad >1 km/h
+    # (a velocidad 0 el cálculo diverge: gastar combustible sin avanzar = ∞).
+    sp = snap["speed"]
+    snap["fuel_l_100km"] = (
+        round(snap["fuel_lh"] / sp * 100, 1) if sp > 1.0 else None
+    )
     return snap
 
 
@@ -363,12 +388,17 @@ def get_data():
 def get_session():
     with _state_lock:
         elapsed_min = (time.time() - _session["start"]) / 60
+        km = _session["km_total"]
+        l = _session["fuel_total_l"]
+        avg = round(l / km * 100, 1) if km > 0.1 else None
         return {
             "elapsed_min": round(elapsed_min, 2),
             "v_max": _session["v_max"],
             "rpm_max": _session["rpm_max"],
             "eot_max": _session["eot_max"],
-            "fuel_total_l": round(_session["fuel_total_l"], 3),
+            "fuel_total_l": round(l, 3),
+            "km_total": round(km, 2),
+            "avg_l_100km": avg,
         }
 
 
@@ -382,7 +412,32 @@ def reset_session():
         _session["rpm_max"] = 0.0
         _session["eot_max"] = 0.0
         _session["fuel_total_l"] = 0.0
+        _session["km_total"] = 0.0
     return {"ok": True}
+
+
+@app.get("/api/tank")
+def get_tank():
+    with _state_lock:
+        l = _tank["since_fill_l"]
+        km = _tank["since_fill_km"]
+        avg = round(l / km * 100, 1) if km > 0.1 else None
+        return {
+            "since_fill_l": round(l, 3),
+            "since_fill_km": round(km, 2),
+            "avg_l_100km": avg,
+            "last_fill_t": _tank["last_fill_t"],
+        }
+
+
+@app.post("/api/tank/full")
+def tank_full():
+    """Marca tanque lleno: resetea acumuladores de litros/km desde el llenado."""
+    with _state_lock:
+        _tank["since_fill_l"] = 0.0
+        _tank["since_fill_km"] = 0.0
+        _tank["last_fill_t"] = time.time()
+    return {"ok": True, "filled_at": _tank["last_fill_t"]}
 
 
 # -----------------------------------------------------------------------------
