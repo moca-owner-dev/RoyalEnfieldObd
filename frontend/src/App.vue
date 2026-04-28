@@ -28,8 +28,7 @@ const connectionState = computed(() => {
   <div class="app">
     <header class="topbar">
       <div class="brand">
-        <span class="brand-main">RE 650</span>
-        <span class="brand-sub">Tablero Virtual</span>
+        <img src="/logo_largo.webp" alt="Royal Enfield" class="brand-logo" />
       </div>
       <div class="status">
         <span class="dot" :style="{ background: connectionState.color }" />
@@ -105,19 +104,12 @@ const connectionState = computed(() => {
 }
 .brand {
   display: flex;
-  flex-direction: column;
-  line-height: 1;
+  align-items: center;
 }
-.brand-main {
-  font-size: 1.5rem;
-  font-weight: 800;
-  letter-spacing: 0.05em;
-}
-.brand-sub {
-  font-size: 0.7rem;
-  color: var(--c-muted);
-  letter-spacing: 0.2em;
-  margin-top: 0.2rem;
+.brand-logo {
+  height: 32px;
+  width: auto;
+  display: block;
 }
 .status {
   display: flex;
