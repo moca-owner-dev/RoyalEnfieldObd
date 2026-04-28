@@ -78,6 +78,10 @@ POLL_INTERVAL = float(os.getenv("POLL_INTERVAL", "0.5"))
 LOG_DIR = Path(os.getenv("LOG_DIR", "../logs"))
 STALE_AFTER_SECONDS = 2.0  # si no llegan datos nuevos en 2s, marcamos disconnected
 MOCK_OBD = os.getenv("MOCK_OBD", "0") == "1"
+# Si N ciclos seguidos no devuelven NINGÚN PID, fuerza reconnect.
+# Caso típico: Pi arrancó antes que la moto → ELM327 no detectó protocolo →
+# todas las queries devuelven None aunque el socket esté vivo.
+NO_DATA_THRESHOLD = int(os.getenv("NO_DATA_THRESHOLD", "5"))
 
 
 # -----------------------------------------------------------------------------
@@ -87,6 +91,7 @@ def _poll_loop():
     global _csv_writer, _csv_file
     client = ELM327Client()
     backoff = 1.0
+    consecutive_no_data = 0
 
     # Setup CSV log
     LOG_DIR.mkdir(parents=True, exist_ok=True)
@@ -120,10 +125,12 @@ def _poll_loop():
         # Poll cycle: update state después de cada PID individual
         # para que datos críticos (RPM/speed) aparezcan ASAP en el frontend
         t0 = time.time()
+        cycle_had_data = False
         try:
             for pid, name in POLL_PIDS:
                 v = decode_pid(pid, client.query_pid(pid))
                 if v is not None:
+                    cycle_had_data = True
                     now = time.time()
                     with _state_lock:
                         _state[name] = v
@@ -152,7 +159,23 @@ def _poll_loop():
             client.close()
             with _state_lock:
                 _state["connected"] = False
+            consecutive_no_data = 0
             continue
+
+        # Si ningún PID devolvió data por varios ciclos, el socket está vivo pero
+        # el ELM327 no tiene protocolo detectado (ECU dormida cuando arrancamos).
+        # Forzamos reconnect para que el handshake corra de nuevo con la ECU despierta.
+        if cycle_had_data:
+            consecutive_no_data = 0
+        else:
+            consecutive_no_data += 1
+            if consecutive_no_data >= NO_DATA_THRESHOLD:
+                print(f"[poller] {NO_DATA_THRESHOLD} ciclos sin data — reconnect (¿ECU recién despierta?)")
+                client.close()
+                with _state_lock:
+                    _state["connected"] = False
+                consecutive_no_data = 0
+                continue
 
         # CSV row al final del ciclo (un row por ciclo completo)
         ts = datetime.now().strftime("%H:%M:%S")
