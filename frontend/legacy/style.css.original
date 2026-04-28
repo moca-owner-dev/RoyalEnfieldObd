@@ -1,0 +1,34 @@
+/* Tema oscuro estilo dashboard automotriz */
+:root {
+  --c-bg: #0d1117;
+  --c-panel: #161b22;
+  --c-border: #30363d;
+  --c-fg: #f0f6fc;
+  --c-muted: #8b949e;
+  --c-bar-bg: #21262d;
+
+  --c-success: #2ea043;
+  --c-info: #58a6ff;
+  --c-warn: #d29922;
+  --c-danger: #f85149;
+
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 16px;
+  color-scheme: dark;
+  color: var(--c-fg);
+  background: var(--c-bg);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--c-bg);
+  color: var(--c-fg);
+}
+
+#app { min-height: 100vh; }
+
+button { font-family: inherit; }
