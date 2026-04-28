@@ -8,6 +8,7 @@ import TempGauge from './components/TempGauge.vue'
 import VoltageIndicator from './components/VoltageIndicator.vue'
 import AlertsPanel from './components/AlertsPanel.vue'
 import SessionStats from './components/SessionStats.vue'
+import logoLargo from './assets/logo_largo.webp'
 
 const { data, session, healthy, resetSession } = useObdData(500)
 
@@ -28,7 +29,7 @@ const connectionState = computed(() => {
   <div class="app">
     <header class="topbar">
       <div class="brand">
-        <img src="/logo_largo.webp" alt="Royal Enfield" class="brand-logo" />
+        <img :src="logoLargo" alt="Royal Enfield" class="brand-logo" />
       </div>
       <div class="status">
         <span class="dot" :style="{ background: connectionState.color }" />
