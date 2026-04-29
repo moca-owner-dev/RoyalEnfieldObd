@@ -12,6 +12,7 @@ En producción (sirviendo el dist/ del frontend):
     uvicorn main:app --port 8000
 """
 
+import json
 import math
 import os
 import time
@@ -76,10 +77,19 @@ _tank = {
     "last_fill_t": None,
 }
 
+# Odómetro de vida del proyecto: km y litros acumulados desde que la Pi
+# empezó a registrar. Persiste a disco para sobrevivir reboots.
+_odometer = {
+    "km_total": 0.0,
+    "fuel_total_l": 0.0,
+    "started_at": None,
+}
+
 _poll_thread: Optional[threading.Thread] = None
 _stop_event = threading.Event()
 _csv_writer = None
 _csv_file = None
+_last_persist_t = 0.0  # timestamp del último guardado a disco
 
 # Configurables vía env
 VE = float(os.getenv("VE", "0.85"))
@@ -87,10 +97,78 @@ POLL_INTERVAL = float(os.getenv("POLL_INTERVAL", "0.5"))
 LOG_DIR = Path(os.getenv("LOG_DIR", "../logs"))
 STALE_AFTER_SECONDS = 2.0  # si no llegan datos nuevos en 2s, marcamos disconnected
 MOCK_OBD = os.getenv("MOCK_OBD", "0") == "1"
+# Path donde persistimos odómetro + tanque (sobrevive reboots).
+PERSIST_FILE = Path(os.getenv("PERSIST_FILE", "../odometer.json"))
+# Cada cuánto guardamos a disco (segundos). Demasiado frecuente desgasta la SD.
+PERSIST_INTERVAL = float(os.getenv("PERSIST_INTERVAL", "30.0"))
 # Si N ciclos seguidos no devuelven NINGÚN PID, fuerza reconnect.
 # Caso típico: Pi arrancó antes que la moto → ELM327 no detectó protocolo →
 # todas las queries devuelven None aunque el socket esté vivo.
 NO_DATA_THRESHOLD = int(os.getenv("NO_DATA_THRESHOLD", "5"))
+
+
+# -----------------------------------------------------------------------------
+# Persistencia de odómetro/tanque (JSON en disco)
+# -----------------------------------------------------------------------------
+def _load_persisted_state():
+    """Lee odómetro y tanque desde disco al boot. Si no existe el archivo,
+    inicializa _odometer con la fecha actual."""
+    if not PERSIST_FILE.exists():
+        with _state_lock:
+            _odometer["started_at"] = time.time()
+        print(f"[persist] sin archivo previo, inicializando ({PERSIST_FILE.resolve()})")
+        return
+    try:
+        with PERSIST_FILE.open() as f:
+            d = json.load(f)
+        with _state_lock:
+            _odometer["km_total"] = float(d.get("km_total", 0.0))
+            _odometer["fuel_total_l"] = float(d.get("fuel_total_l", 0.0))
+            _odometer["started_at"] = d.get("started_at") or time.time()
+            _tank["since_fill_l"] = float(d.get("tank_since_fill_l", 0.0))
+            _tank["since_fill_km"] = float(d.get("tank_since_fill_km", 0.0))
+            _tank["last_fill_t"] = d.get("tank_last_fill_t")
+        print(f"[persist] restored: km_total={_odometer['km_total']:.1f} "
+              f"fuel_total_l={_odometer['fuel_total_l']:.2f} "
+              f"tank_l={_tank['since_fill_l']:.2f} tank_km={_tank['since_fill_km']:.1f}")
+    except (json.JSONDecodeError, OSError, ValueError) as e:
+        print(f"[persist] error leyendo {PERSIST_FILE}: {e}; ignorando")
+        with _state_lock:
+            _odometer["started_at"] = time.time()
+
+
+def _save_persisted_state():
+    """Escribe el estado actual a disco. Atómico via tempfile + rename."""
+    with _state_lock:
+        payload = {
+            "km_total": _odometer["km_total"],
+            "fuel_total_l": _odometer["fuel_total_l"],
+            "started_at": _odometer["started_at"],
+            "tank_since_fill_l": _tank["since_fill_l"],
+            "tank_since_fill_km": _tank["since_fill_km"],
+            "tank_last_fill_t": _tank["last_fill_t"],
+            "saved_at": time.time(),
+        }
+    try:
+        PERSIST_FILE.parent.mkdir(parents=True, exist_ok=True)
+        tmp = PERSIST_FILE.with_suffix(PERSIST_FILE.suffix + ".tmp")
+        tmp.write_text(json.dumps(payload, indent=2))
+        tmp.replace(PERSIST_FILE)
+    except OSError as e:
+        print(f"[persist] error guardando: {e}")
+
+
+def _maybe_persist():
+    """Guarda a disco si pasó suficiente tiempo desde el último save."""
+    global _last_persist_t
+    now = time.time()
+    if now - _last_persist_t >= PERSIST_INTERVAL:
+        _save_persisted_state()
+        _last_persist_t = now
+
+
+# Cargar estado al import (antes de que arranquen los threads)
+_load_persisted_state()
 
 
 # -----------------------------------------------------------------------------
@@ -150,7 +228,7 @@ def _poll_loop():
                             _state["map"], _state["rpm"], _state["iat"], VE,
                         )
                         _state["gear"] = estimate_gear(_state["rpm"], _state["speed"])
-                        # Sesión + tanque incrementales
+                        # Sesión + tanque + odómetro incrementales
                         dt_h = (now - _session["_last_t"]) / 3600
                         d_l = _state["fuel_lh"] * dt_h
                         d_km = _state["speed"] * dt_h
@@ -161,6 +239,8 @@ def _poll_loop():
                         _session["km_total"] += d_km
                         _tank["since_fill_l"] += d_l
                         _tank["since_fill_km"] += d_km
+                        _odometer["fuel_total_l"] += d_l
+                        _odometer["km_total"] += d_km
                         _session["_last_t"] = now
 
             volt = client.query_voltage()
@@ -203,6 +283,7 @@ def _poll_loop():
             ]
         _csv_writer.writerow(row)
         _csv_file.flush()
+        _maybe_persist()
 
         # Mantener intervalo
         elapsed = time.time() - t0
@@ -212,6 +293,7 @@ def _poll_loop():
     client.close()
     if _csv_file:
         _csv_file.close()
+    _save_persisted_state()  # save final al terminar
     print("[poller] terminado")
 
 
@@ -301,6 +383,8 @@ def _mock_loop():
             _session["km_total"] += d_km
             _tank["since_fill_l"] += d_l
             _tank["since_fill_km"] += d_km
+            _odometer["fuel_total_l"] += d_l
+            _odometer["km_total"] += d_km
             _session["_last_t"] = now
 
         ts = datetime.now().strftime("%H:%M:%S")
@@ -314,11 +398,13 @@ def _mock_loop():
             ]
         _csv_writer.writerow(row)
         _csv_file.flush()
+        _maybe_persist()
 
         _stop_event.wait(POLL_INTERVAL)
 
     if _csv_file:
         _csv_file.close()
+    _save_persisted_state()
     print("[mock] terminado")
 
 
@@ -335,6 +421,7 @@ async def lifespan(app: FastAPI):
     _stop_event.set()
     if _poll_thread:
         _poll_thread.join(timeout=2.0)
+    _save_persisted_state()  # save final por si el thread no llegó a hacerlo
 
 
 app = FastAPI(title="RE 650 Dashboard", lifespan=lifespan)
@@ -437,7 +524,27 @@ def tank_full():
         _tank["since_fill_l"] = 0.0
         _tank["since_fill_km"] = 0.0
         _tank["last_fill_t"] = time.time()
+    _save_persisted_state()  # save inmediato (no perder el marker en corte de batería)
     return {"ok": True, "filled_at": _tank["last_fill_t"]}
+
+
+@app.get("/api/odometer")
+def get_odometer():
+    """Odómetro de vida del proyecto (km totales que la Pi ha registrado)."""
+    with _state_lock:
+        km = _odometer["km_total"]
+        l = _odometer["fuel_total_l"]
+        avg = round(l / km * 100, 1) if km > 0.1 else None
+        return {
+            "km_total": round(km, 2),
+            "fuel_total_l": round(l, 3),
+            "avg_l_100km": avg,
+            "started_at": _odometer["started_at"],
+            "days_active": (
+                round((time.time() - _odometer["started_at"]) / 86400, 1)
+                if _odometer["started_at"] else 0
+            ),
+        }
 
 
 # -----------------------------------------------------------------------------
