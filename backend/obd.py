@@ -5,6 +5,7 @@ Encapsula la comunicación TCP con el dongle, parsing de PIDs, y los cálculos
 derivados (consumo de combustible, marcha estimada).
 """
 
+import os
 import socket
 import time
 import threading
@@ -23,6 +24,12 @@ M_AIR = 28.97              # g/mol masa molar del aire
 R_GAS = 8.314              # J/(mol·K) constante de gas ideal
 AFR_STOICH = 14.7          # AFR estequiométrico para gasolina
 GASOLINE_DENSITY = 745.7   # g/L densidad de gasolina
+
+# Factor de corrección empírico al cálculo speed-density.
+# La fórmula raw asume AFR=14.7 (estequio) pero la ECU corre lean (~16-17) en crucero.
+# Ajustar contra datos reales de fill-up. Default 0.36 ≈ specs publicados Interceptor 650
+# (~4 L/100km vs raw que da ~11 L/100km). Configurable vía env para calibrar fino.
+FUEL_CORRECTION_FACTOR = float(os.getenv("FUEL_CORRECTION_FACTOR", "0.36"))
 
 # Transmisión (manual p.4)
 GEAR_RATIOS = {1: 2.615, 2: 1.813, 3: 1.429, 4: 1.190, 5: 1.040, 6: 0.962}
@@ -189,10 +196,13 @@ def estimate_gear(rpm: float, speed_kmh: float) -> Optional[int]:
 
 
 def calc_fuel_lh(map_kpa: float, rpm: float, iat_c: float, ve: float = 0.85) -> float:
-    """Speed-density estimate: consumo en L/h asumiendo AFR estequiométrico."""
+    """Speed-density estimate: consumo en L/h.
+    Multiplica por FUEL_CORRECTION_FACTOR para compensar la diferencia entre
+    AFR estequiométrico (14.7) y AFR lean real de la ECU en crucero (~16-17).
+    """
     if rpm < 100 or map_kpa < 1:
         return 0.0
     iat_k = max(iat_c + 273.15, 200.0)
     maf_gs = (map_kpa * DISPLACEMENT_L * rpm * ve * M_AIR) / (R_GAS * iat_k * 120)
     fuel_gs = maf_gs / AFR_STOICH
-    return fuel_gs * 3600 / GASOLINE_DENSITY
+    return fuel_gs * 3600 / GASOLINE_DENSITY * FUEL_CORRECTION_FACTOR
