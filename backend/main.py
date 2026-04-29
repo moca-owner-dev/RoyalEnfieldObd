@@ -171,6 +171,13 @@ def _maybe_persist():
 _load_persisted_state()
 
 
+def _is_fresh(last_update):
+    """Devuelve True si last_update es lo suficientemente reciente."""
+    if last_update is None:
+        return False
+    return (time.time() - last_update) < STALE_AFTER_SECONDS
+
+
 # -----------------------------------------------------------------------------
 # Background poller
 # -----------------------------------------------------------------------------
@@ -271,18 +278,22 @@ def _poll_loop():
                 consecutive_no_data = 0
                 continue
 
-        # CSV row al final del ciclo (un row por ciclo completo)
+        # CSV row solo si la data es fresca. Sin esto, cuando la moto se apaga
+        # el log se sigue llenando con filas idénticas (la "cola congelada")
+        # porque _state mantiene los últimos valores buenos indefinidamente.
         ts = datetime.now().strftime("%H:%M:%S")
         with _state_lock:
+            fresh = _is_fresh(_state["last_update"])
             row = [
                 ts, f"{_state['rpm']:.0f}", f"{_state['speed']:.0f}",
                 f"{_state['tps']:.2f}", f"{_state['map']:.1f}",
                 f"{_state['iat']:.1f}", f"{_state['eot']:.1f}",
                 f"{_state['load']:.2f}", f"{_state['voltage']:.2f}",
                 f"{_state['fuel_lh']:.3f}", _state["gear"] or "",
-            ]
-        _csv_writer.writerow(row)
-        _csv_file.flush()
+            ] if fresh else None
+        if row is not None:
+            _csv_writer.writerow(row)
+            _csv_file.flush()
         _maybe_persist()
 
         # Mantener intervalo
@@ -432,13 +443,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-def _is_fresh(last_update):
-    """Devuelve True si last_update es lo suficientemente reciente."""
-    if last_update is None:
-        return False
-    return (time.time() - last_update) < STALE_AFTER_SECONDS
 
 
 @app.get("/api/health")
