@@ -4,6 +4,7 @@
 # Mantiene este archivo versionado
 !.gitignore
 !README.md
+!LICENSE
 
 # Solo incluye estas carpetas
 !frontend/

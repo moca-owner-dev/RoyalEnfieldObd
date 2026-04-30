@@ -53,7 +53,7 @@ La moto del usuario es un **Royal Enfield Interceptor 650 (2019)** importado de 
 - Protocolo: TCP plano, comandos AT/OBD ASCII terminados en `\r`, prompt `>`
 
 ### Adaptador USB WiFi (para setup dev en escritorio)
-- Detectado como `wlxe89f80d0fd9c` en NetworkManager
+- Detectado como `<wlan-usb-iface>` en NetworkManager (nombre incluye la MAC del adaptador)
 - Permite conectar al dongle SIN perder internet de la WiFi normal
 - Configuración: ver sección "Setup de red dual" abajo
 
@@ -137,14 +137,14 @@ Permite tener internet (para chatear/devops) Y acceso al dongle al mismo tiempo.
 
 ```
 [Laptop]
-    ├── wlp3s0 (WiFi interno) → "Pip Boy 51" (192.168.1.x) → internet
-    └── wlxe89f80d0fd9c (USB) → "Steren SCAN-030" (192.168.0.x) → dongle ELM327
+    ├── wlp3s0 (WiFi interno) → "<your-home-wifi>" (192.168.1.x) → internet
+    └── <wlan-usb-iface> (USB) → "Steren SCAN-030" (192.168.0.x) → dongle ELM327
 ```
 
 ### Setup (NetworkManager)
 ```bash
 # Conectar el USB adapter al dongle
-nmcli device wifi connect "Steren SCAN-030" ifname wlxe89f80d0fd9c
+nmcli device wifi connect "Steren SCAN-030" ifname <wlan-usb-iface>
 
 # Configurar para que NO sea default route (evita robar internet)
 nmcli connection modify "Steren SCAN-030 1" ipv4.never-default yes ipv4.route-metric 50000
@@ -438,7 +438,7 @@ Mock FastAPI que sirve los mismos endpoints (`/api/data`, `/api/session`, `/api/
 
 ## 👤 Preferencias del usuario
 
-- **David** (david@moca.gt), Fedora Linux + macOS, fluido en terminal
+- **David**, Fedora Linux + macOS, fluido en terminal
 - Hardware tinkerer (treadmills, OBD2, MDB protocol)
 - Stack preferido: **Python para scripting, FastAPI + Vue/Astro para web**
 - Prefiere **explicaciones detalladas** (lleva registro)
