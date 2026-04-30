@@ -4,6 +4,8 @@ A real-time OBD-II dashboard for the **Royal Enfield Interceptor 650**. Reads li
 
 Made with care in Guatemala 🇬🇹 by a rider, for riders.
 
+![Dashboard running on a phone](tablero.jpg)
+
 ## What it shows
 
 - RPM, speed, and estimated gear
