@@ -5,7 +5,7 @@
 !.gitignore
 !README.md
 !LICENSE
-!tablero.jpg
+!tablero.gif
 
 # Solo incluye estas carpetas
 !frontend/
