@@ -103,3 +103,8 @@ You are free to use, modify, and redistribute this project. Attribution to the o
 
 - The OBD-II / ELM327 community for decades of reverse-engineering work.
 - The Royal Enfield 650 owner forums and Reddit threads that helped figure out the non-standard PIDs.
+
+---
+
+Built by **David Moca** in Guatemala 🇬🇹
+[GitHub @davinchoMoCa](https://github.com/davinchoMoCa) · [moca.gt](https://moca.gt/)
