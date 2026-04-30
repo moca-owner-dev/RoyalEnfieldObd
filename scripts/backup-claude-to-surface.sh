@@ -1,19 +1,49 @@
 #!/bin/bash
-# Sincroniza la memoria + transcripts de Claude Code (laptop) a la Surface.
-# Sirve como backup point-in-time. Idempotente: solo transfiere lo nuevo.
+# Sincroniza memoria + transcripts de Claude Code (laptop) a otras máquinas.
+# Idempotente vía rsync — solo transfiere lo nuevo.
 #
-# Uso: ./scripts/backup-claude-to-surface.sh
+# Uso:
+#   ./scripts/backup-claude-to-surface.sh           # default: a la Surface
+#   ./scripts/backup-claude-to-surface.sh mac       # a la Mac
+#   ./scripts/backup-claude-to-surface.sh all       # a todas
 
 set -e
 
-SURFACE_HOST="${SURFACE_HOST:-pipboy@10.42.0.180}"
 SRC="$HOME/.claude/projects/-home-pipboy-Descargas/"
-# Path remoto: usamos ~ para que se expanda en el shell remoto
 DST="~/.claude/projects/-home-pipboy-Descargas/"
 
-echo "→ Backup Claude memory + transcripts a $SURFACE_HOST"
-ssh "$SURFACE_HOST" "mkdir -p $DST"
-rsync -az --info=progress2 "$SRC" "$SURFACE_HOST:$DST"
+# Targets disponibles
+declare -A TARGETS=(
+    [surface]="pipboy@10.42.0.180"
+    [mac]="macuser@10.42.0.203"
+)
 
-echo "→ Resumen en destino:"
-ssh "$SURFACE_HOST" "cd $DST && echo '   memory/:' && ls memory/ | wc -l && echo '   transcripts:' && ls *.jsonl 2>/dev/null | wc -l && echo '   total:' && du -sh ."
+push_to() {
+    local name="$1"
+    local host="${TARGETS[$name]}"
+    if [[ -z "$host" ]]; then
+        echo "× target desconocido: $name"
+        return 1
+    fi
+    echo "→ $name ($host)"
+    if ! ssh -o ConnectTimeout=3 "$host" "mkdir -p $DST" 2>/dev/null; then
+        echo "  × $host inalcanzable, saltando"
+        return 0
+    fi
+    rsync -az "$SRC" "$host:$DST"
+    ssh "$host" "cd $DST && echo \"  memory: \$(ls memory/ | wc -l) | transcripts: \$(ls *.jsonl 2>/dev/null | wc -l) | total: \$(du -sh . | cut -f1)\""
+}
+
+target="${1:-surface}"
+case "$target" in
+    surface|mac)
+        push_to "$target"
+        ;;
+    all)
+        for t in surface mac; do push_to "$t"; done
+        ;;
+    *)
+        echo "uso: $0 [surface|mac|all]"
+        exit 1
+        ;;
+esac
