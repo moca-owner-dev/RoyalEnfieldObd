@@ -85,6 +85,14 @@ Contributions are very welcome — this started as a personal project but the co
 
 When developing, please use `MOCK_OBD=1` for changes that don't strictly require the real bike.
 
+## Support the project
+
+This project is and always will be **free and open source**. If it's useful to you and you'd like to help keep it growing — covering hardware for testing other Royal Enfield models, weekend dev time, and the occasional gas tank for "testing rides" — a coffee-sized donation goes a long way.
+
+[![Donate via PayPal](https://img.shields.io/badge/Donate-PayPal-00457C?logo=paypal&logoColor=white&style=for-the-badge)](https://www.paypal.com/donate/?hosted_button_id=URHRFMDVJ3L7A)
+
+Donations are appreciated but never expected. The best contribution is still opening an issue or sending a PR.
+
 ## License
 
 [MIT](LICENSE) — Copyright (c) 2026 David Moca.

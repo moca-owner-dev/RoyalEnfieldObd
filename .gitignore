@@ -6,6 +6,7 @@
 !README.md
 !LICENSE
 !tablero.gif
+!_config.yml
 
 # Solo incluye estas carpetas
 !frontend/
