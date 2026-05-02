@@ -13,13 +13,15 @@ import re
 import sys
 
 # ─── Pip-Boy palette (ANSI) ───
-G = "\033[1;32m"      # green bold
-GB = "\033[1;92m"     # bright green bold
-g = "\033[32m"        # green dim
-R = "\033[1;91m"      # bright red
-A = "\033[1;93m"      # bright yellow
+G = "\033[40;1;32m"      # bg black + green bold
+GB = "\033[40;1;92m"     # bg black + bright green bold
+g = "\033[40;32m"        # bg black + green dim
+R = "\033[40;1;91m"      # bg black + bright red
+A = "\033[40;1;93m"      # bg black + bright yellow
 RST = "\033[0m"
-CLR = "\033[2J\033[H"
+# Pinta toda la pantalla negra antes del primer print, así no queda bg azul
+# del default de la consola del kernel
+CLR = "\033[40m\033[2J\033[H"
 
 # ─── Mockup data ───
 S = {
