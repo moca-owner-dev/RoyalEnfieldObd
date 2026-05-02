@@ -13,10 +13,11 @@ const props = defineProps({
 })
 
 const status = computed(() => {
-  if (props.value >= props.danger) return 'DETENER MOTO'
-  if (props.value >= props.warning) return 'ALTO'
+  // Translated status messages to English
+  if (props.value >= props.danger) return 'STOP BIKE'
+  if (props.value >= props.warning) return 'HIGH'
   if (props.value >= props.cold) return 'Normal'
-  return 'Frío'
+  return 'Cold'
 })
 
 const colorVar = computed(() => {
@@ -32,6 +33,7 @@ const fillPct = computed(() => Math.min(100, Math.max(0, (props.value / props.ma
 <template>
   <div class="gauge">
     <div class="header">
+      <!-- The label (e.g., OIL or AIR) is passed from the parent component -->
       <span class="label">{{ label }}</span>
       <span class="status" :style="{ color: colorVar }">{{ status }}</span>
     </div>
@@ -45,6 +47,7 @@ const fillPct = computed(() => Math.min(100, Math.max(0, (props.value / props.ma
 </template>
 
 <style scoped>
+/* Styles remain identical to maintain the original rider-centric design */
 .gauge {
   background: var(--c-panel);
   border-radius: 10px;

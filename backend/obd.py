@@ -1,8 +1,6 @@
 """
-Cliente ELM327 + decoders OBD2 + cálculos para Royal Enfield Interceptor 650.
-
-Encapsula la comunicación TCP con el dongle, parsing de PIDs, y los cálculos
-derivados (consumo de combustible, marcha estimada).
+ELM327 Client + OBD2 decoders + calculations for Royal Enfield J-Series 350.
+Updated for Classic/Bullet/Meteor 350 compatibility.
 """
 
 import os
@@ -12,14 +10,14 @@ import threading
 from typing import Optional
 
 # -----------------------------------------------------------------------------
-# Configuración
+# Configuration - Adjusted for J-Series 350
 # -----------------------------------------------------------------------------
 HOST = "192.168.0.10"
 PORT = 35000
 TIMEOUT = 2.0  # segundos por query — bajo para detectar drops rápido
 
-# Specs del Interceptor 650 (manual p.4)
-DISPLACEMENT_L = 0.648
+# Specs for J-Series 350 (Classic/Bullet/Meteor)
+DISPLACEMENT_L = 0.349
 M_AIR = 28.97              # g/mol masa molar del aire
 R_GAS = 8.314              # J/(mol·K) constante de gas ideal
 AFR_STOICH = 14.7          # AFR estequiométrico para gasolina
@@ -31,11 +29,18 @@ GASOLINE_DENSITY = 745.7   # g/L densidad de gasolina
 # (~4 L/100km vs raw que da ~11 L/100km). Configurable vía env para calibrar fino.
 FUEL_CORRECTION_FACTOR = float(os.getenv("FUEL_CORRECTION_FACTOR", "0.36"))
 
-# Transmisión (manual p.4)
-GEAR_RATIOS = {1: 2.615, 2: 1.813, 3: 1.429, 4: 1.190, 5: 1.040, 6: 0.962}
-PRIMARY_RATIO = 2.05
-SECONDARY_RATIO = 2.533
-TIRE_CIRCUM_M = 2.008  # 130/70 R18 trasera
+# Transmission - Specific to Classic/Bullet/Meteor 350
+# J-Series has 5 gears.
+GEAR_RATIOS = {
+    1: 2.615, 
+    2: 1.706, 
+    3: 1.300, 
+    4: 1.040, 
+    5: 0.875
+}
+PRIMARY_RATIO = 2.313    # J-series primary drive ratio
+SECONDARY_RATIO = 2.800  # 15/42T standard sprocket setup
+TIRE_CIRCUM_M = 2.080    # Standard 120/80 R18 or 140/70 R17 circumference
 
 # PIDs que vamos a poll en cada ciclo.
 # Orden importante: críticos primero para que aparezcan en pantalla más rápido,

@@ -10,15 +10,18 @@ const emit = defineEmits(['reset'])
 <template>
   <div class="panel">
     <div class="head">
-      <span class="label">SESIÓN</span>
+      <!-- Translated from SESIÓN to SESSION -->
+      <span class="label">SESSION</span>
       <button class="reset-btn" @click="emit('reset')">Reset</button>
     </div>
     <div class="grid">
       <div>
-        <div class="stat-label">Duración</div>
+        <!-- Translated from Duración to Duration -->
+        <div class="stat-label">Duration</div>
         <div class="stat-val">{{ session.elapsed_min.toFixed(1) }} <span>min</span></div>
       </div>
       <div>
+        <!-- Vmax is universal, but label implies Max Speed -->
         <div class="stat-label">Vmax</div>
         <div class="stat-val">{{ Math.round(session.v_max) }} <span>km/h</span></div>
       </div>
@@ -31,11 +34,13 @@ const emit = defineEmits(['reset'])
         <div class="stat-val">{{ session.eot_max.toFixed(1) }} <span>°C</span></div>
       </div>
       <div>
-        <div class="stat-label">Combustible</div>
+        <!-- Translated from Combustible to Fuel Used -->
+        <div class="stat-label">Fuel Used</div>
         <div class="stat-val">{{ session.fuel_total_l.toFixed(2) }} <span>L</span></div>
       </div>
       <div>
-        <div class="stat-label">Consumo ahora</div>
+        <!-- Translated from Consumo ahora to Consumption -->
+        <div class="stat-label">Consumption</div>
         <div class="stat-val">{{ data.fuel_lh.toFixed(2) }} <span>L/h</span></div>
       </div>
     </div>

@@ -3,10 +3,12 @@ import { computed } from 'vue'
 
 const props = defineProps({
   speed: { type: Number, default: 0 },
-  max: { type: Number, default: 200 },
+  // Adjusted for J-series: 150 is a better scale for the 350cc than 200
+  max: { type: Number, default: 150 },
 })
 
 const speedColor = computed(() => {
+  // Keeping standard safety thresholds: warn at 80, danger at 100
   if (props.speed > 100) return 'var(--c-danger)'
   if (props.speed > 80) return 'var(--c-warn)'
   return 'var(--c-fg)'
@@ -17,7 +19,8 @@ const fillPct = computed(() => Math.min(100, (props.speed / props.max) * 100))
 
 <template>
   <div class="gauge">
-    <div class="label">VELOCIDAD</div>
+    <!-- Translated from VELOCIDAD to SPEED -->
+    <div class="label">SPEED</div>
     <div class="value" :style="{ color: speedColor }">
       {{ Math.round(speed) }}
       <span class="unit">km/h</span>

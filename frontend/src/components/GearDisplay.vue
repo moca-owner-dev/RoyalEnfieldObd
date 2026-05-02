@@ -9,7 +9,9 @@ const props = defineProps({
 
 const display = computed(() => {
   if (props.gear) return String(props.gear)
+  // Neutral 'N' logic: If engine is idling and bike is mostly stationary
   if (props.rpm > 800 && props.speed < 5) return 'N'
+  // Display dash if the engine is off or very low RPM
   if (props.rpm < 300) return '—'
   return '?'
 })
@@ -19,7 +21,8 @@ const isReal = computed(() => props.gear !== null)
 
 <template>
   <div class="gauge">
-    <div class="label">MARCHA</div>
+    <!-- Translated from MARCHA to GEAR -->
+    <div class="label">GEAR</div>
     <div class="gear" :class="{ active: isReal }">{{ display }}</div>
   </div>
 </template>

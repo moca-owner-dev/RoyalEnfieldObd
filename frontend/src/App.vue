@@ -5,9 +5,10 @@ import logoLargo from './assets/logo_largo.webp'
 
 const { data, session, tank, healthy, markTankFull } = useObdData(500)
 
-const SPEED_MAX = 200
-const RPM_MAX = 8500
-const RPM_REDLINE = 7000
+// CALIBRATION FOR J-SERIES 350 (Classic/Bullet)
+const SPEED_MAX = 150        // Interceptor was 200
+const RPM_MAX = 7000         // Interceptor was 8500
+const RPM_REDLINE = 6000     // Interceptor was 7000
 
 const speedPct = computed(() => Math.min(100, (data.value.speed / SPEED_MAX) * 100))
 const rpmPct = computed(() => Math.min(100, (data.value.rpm / RPM_MAX) * 100))
@@ -17,10 +18,10 @@ const conn = computed(() => {
   if (!healthy.value) return { label: 'Backend offline', cls: 'is-danger' }
   if (!data.value.connected) {
     const s = data.value.stale_seconds
-    if (s != null) return { label: `Sin datos ${s.toFixed(0)}s`, cls: 'is-warn' }
-    return { label: 'Dongle desconectado', cls: 'is-warn' }
+    if (s != null) return { label: `No data available ${s.toFixed(0)}s`, cls: 'is-warn' }
+    return { label: 'Dongle disconnected', cls: 'is-warn' }
   }
-  return { label: 'Conectado', cls: 'is-ok' }
+  return { label: 'Connected', cls: 'is-ok' }
 })
 
 // EOT zonas para color
@@ -58,7 +59,7 @@ function fmt(v, digits = 0, dash = '—') {
     <main class="grid" :class="{ stale: !data.connected }">
       <!-- VELOCIDAD: prioridad 1, dominante -->
       <section class="cell speed">
-        <div class="micro">VELOCIDAD</div>
+        <div class="micro">Velocity</div>
         <div class="big">
           <span class="num">{{ fmt(data.speed, 0, '0') }}</span>
           <span class="unit">km/h</span>
@@ -66,7 +67,7 @@ function fmt(v, digits = 0, dash = '—') {
         <div class="bar">
           <div class="fill" :style="{ width: speedPct + '%' }" />
         </div>
-        <div class="bar-ticks"><span>0</span><span>100</span><span>200</span></div>
+        <div class="bar-ticks"><span>0</span><span>75</span><span>150</span></div>
       </section>
 
       <!-- RPM: prioridad 2 -->
@@ -84,7 +85,7 @@ function fmt(v, digits = 0, dash = '—') {
 
       <!-- MARCHA: prioridad 3, no invasiva -->
       <section class="cell gear">
-        <div class="micro">MARCHA</div>
+        <div class="micro">Gear</div>
         <div class="gear-num">{{ data.gear ?? '–' }}</div>
       </section>
     </main>
@@ -92,23 +93,23 @@ function fmt(v, digits = 0, dash = '—') {
     <!-- Strip secundario: temps + voltaje + throttle + carga + L/100km -->
     <section class="strip">
       <div class="metric" :class="eotClass">
-        <span class="m-lbl">ACEITE</span>
+        <span class="m-lbl">Oil Temperature</span>
         <span class="m-val">{{ fmt(data.eot, 0) }}<small>°C</small></span>
       </div>
       <div class="metric">
-        <span class="m-lbl">AIRE</span>
+        <span class="m-lbl">Air Temperature</span>
         <span class="m-val">{{ fmt(data.iat, 0) }}<small>°C</small></span>
       </div>
       <div class="metric" :class="voltClass">
-        <span class="m-lbl">VOLT</span>
+        <span class="m-lbl">Battery Voltage</span>
         <span class="m-val">{{ fmt(data.voltage, 1) }}<small>V</small></span>
       </div>
       <div class="metric">
-        <span class="m-lbl">THROTTLE</span>
+        <span class="m-lbl">Throttle</span>
         <span class="m-val">{{ fmt(data.tps, 0) }}<small>%</small></span>
       </div>
       <div class="metric">
-        <span class="m-lbl">CARGA</span>
+        <span class="m-lbl">Load</span>
         <span class="m-val">{{ fmt(data.load, 0) }}<small>%</small></span>
       </div>
       <div class="metric accent">
@@ -120,17 +121,17 @@ function fmt(v, digits = 0, dash = '—') {
     <!-- Footer: tanque + sesión -->
     <footer class="foot">
       <button class="tank-btn" @click="markTankFull" title="Marcar tanque lleno">
-        ⛽ Tanque lleno
+        ⛽ Tank Full
       </button>
       <div class="tank-info">
         <span><b>{{ fmt(tank.since_fill_l, 2, '0.00') }}</b> L</span>
         <span>·</span>
         <span><b>{{ fmt(tank.since_fill_km, 1, '0') }}</b> km</span>
         <span>·</span>
-        <span>prom <b>{{ fmt(tank.avg_l_100km, 1) }}</b> L/100km</span>
+        <span>Mileage <b>{{ fmt(tank.avg_l_100km, 1) }}</b> L/100km</span>
       </div>
       <div class="session-info">
-        <span>Sesión <b>{{ fmt(session.elapsed_min, 0) }}</b> min</span>
+        <span>Session <b>{{ fmt(session.elapsed_min, 0) }}</b> min</span>
         <span>·</span>
         <span>Vmax <b>{{ fmt(session.v_max, 0) }}</b></span>
       </div>
@@ -315,7 +316,7 @@ function fmt(v, digits = 0, dash = '—') {
 }
 .metric.accent .m-val { color: var(--c-info); }
 
-/* FOOTER (tanque + sesión) */
+/* FOOTER (tanque + Session) */
 .foot {
   display: flex;
   align-items: center;
