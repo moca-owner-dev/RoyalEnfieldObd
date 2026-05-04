@@ -5,17 +5,20 @@
 # Uso:
 #   ./scripts/backup-claude-to-surface.sh           # default: a la Surface
 #   ./scripts/backup-claude-to-surface.sh mac       # a la Mac
-#   ./scripts/backup-claude-to-surface.sh all       # a todas
+#   ./scripts/backup-claude-to-surface.sh dell      # a la Dell Pro
+#   ./scripts/backup-claude-to-surface.sh all       # a todas (saltea offline)
 
 set -e
 
 SRC="$HOME/.claude/projects/-home-pipboy-Descargas/"
 DST="~/.claude/projects/-home-pipboy-Descargas/"
 
-# Targets disponibles
+# Mac y Surface comparten dongle USB-eth → misma IP cuando se rotan.
+# El script salta máquinas no alcanzables.
 declare -A TARGETS=(
     [surface]="pipboy@10.42.0.180"
-    [mac]="macuser@10.42.0.203"
+    [mac]="macuser@10.42.0.180"
+    [dell]="pipboy@192.168.1.107"
 )
 
 push_to() {
@@ -26,7 +29,7 @@ push_to() {
         return 1
     fi
     echo "→ $name ($host)"
-    if ! ssh -o ConnectTimeout=3 "$host" "mkdir -p $DST" 2>/dev/null; then
+    if ! ssh -o ConnectTimeout=3 -o BatchMode=yes "$host" "mkdir -p $DST" 2>/dev/null; then
         echo "  × $host inalcanzable, saltando"
         return 0
     fi
@@ -36,14 +39,14 @@ push_to() {
 
 target="${1:-surface}"
 case "$target" in
-    surface|mac)
+    surface|mac|dell)
         push_to "$target"
         ;;
     all)
-        for t in surface mac; do push_to "$t"; done
+        for t in surface mac dell; do push_to "$t"; done
         ;;
     *)
-        echo "uso: $0 [surface|mac|all]"
+        echo "uso: $0 [surface|mac|dell|all]"
         exit 1
         ;;
 esac
