@@ -19,6 +19,7 @@ declare -A TARGETS=(
     [surface]="pipboy@10.42.0.180"
     [mac]="macuser@10.42.0.180"
     [dell]="pipboy@192.168.1.107"
+    [l5290]="pipboy-21@192.168.1.113"
 )
 
 push_to() {
@@ -39,14 +40,14 @@ push_to() {
 
 target="${1:-surface}"
 case "$target" in
-    surface|mac|dell)
+    surface|mac|dell|l5290)
         push_to "$target"
         ;;
     all)
-        for t in surface mac dell; do push_to "$t"; done
+        for t in surface mac dell l5290; do push_to "$t"; done
         ;;
     *)
-        echo "uso: $0 [surface|mac|dell|all]"
+        echo "uso: $0 [surface|mac|dell|l5290|all]"
         exit 1
         ;;
 esac
