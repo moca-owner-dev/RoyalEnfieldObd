@@ -284,40 +284,48 @@ def render(state, retry_count):
     else:
         global_msg = f"{R}[ DEGRADED ]{G}"
 
+    # Blank no-border row, painted black so the kernel console doesn't bleed
+    # the default blue background through it.
+    GAP = "\033[40m" + " " * WIDTH + RST
+
+    def section(title, content_lines):
+        return [hdr(f" {title} "), *content_lines, hdr()]
+
     lines = [
         CLR + hdr(" ROBCO INDUSTRIES "),
-        line(f"     PIP-OS v3.4.1   SYSTEM STATUS MONITOR"),
-        line(f"     {now}        UPTIME  {GB}{uptime}{G}"),
+        line(f"  PIP-OS v3.4.1   {now}   UP {GB}{uptime}{G}"),
         hdr(),
-        line(),
-        line(f"  [CORE SERVICES]"),
-        line(f"  > interceptor.service ......... {svc_tag}"),
-        line(f"  > API  :8000 .................. {api_tag}"),
-        line(f"  > MOCK_OBD .................... {mock_tag}"),
-        hdr(),
-        line(),
-        line(f"  [OBD LINK]"),
-        line(f"  > DONGLE {GB}{DONGLE_HOST}{G}:{GB}{DONGLE_PORT}{G} .. {dongle_tag}"),
-        line(f"  > LAST POLL ..... {GB}{last_str}{G}"),
-        line(f"  > DATA AGE ...... {GB}{age_str}{G}"),
-        hdr(),
-        line(),
-        line(f"  [NETWORK]"),
-        line(f"  > wlan0  {GB}{wlan0_ssid:<16}{G} {GB}{wlan0_ip}{G}"),
-        line(f"  > wlan1  {GB}{wlan1_ssid:<16}{G} {GB}{wlan1_ip}{G}"),
-        line(f"  > eth0   {' ' * 17}{GB}{eth_ip}{G}"),
-        line(f"  > AP CLIENTS .................. {GB}{ap_clients}{G}"),
-        hdr(),
-        line(),
-        line(f"  [SYSTEM]"),
-        line(f"  > CPU {cpu_str}    LOAD {GB}{la1:>4.2f} {la5:>4.2f} {la15:>4.2f}{G}"),
-        line(f"  > MEM {GB}{mem_used:>4}{G}/{GB}{mem_total}{G} MB    DISK {GB}{disk}{G} FREE"),
-        line(f"  > LOGS  {GB}{csvs}{G} CSV / {GB}{logs_size}{G}"),
-        hdr(),
-        line(),
-        line(f"  [BIKE STATUS]"),
-        line(bike_l1),
-        line(bike_l2),
+        GAP,
+        *section("CORE SERVICES", [
+            line(f"  > interceptor.service ......... {svc_tag}"),
+            line(f"  > API  :8000 .................. {api_tag}"),
+            line(f"  > MOCK_OBD .................... {mock_tag}"),
+        ]),
+        GAP,
+        *section("OBD LINK", [
+            line(f"  > DONGLE {GB}{DONGLE_HOST}{G}:{GB}{DONGLE_PORT}{G} .. {dongle_tag}"),
+            line(f"  > LAST POLL ..... {GB}{last_str}{G}"),
+            line(f"  > DATA AGE ...... {GB}{age_str}{G}"),
+        ]),
+        GAP,
+        *section("NETWORK", [
+            line(f"  > wlan0  {GB}{wlan0_ssid:<16}{G} {GB}{wlan0_ip}{G}"),
+            line(f"  > wlan1  {GB}{wlan1_ssid:<16}{G} {GB}{wlan1_ip}{G}"),
+            line(f"  > eth0   {' ' * 17}{GB}{eth_ip}{G}"),
+            line(f"  > AP CLIENTS .................. {GB}{ap_clients}{G}"),
+        ]),
+        GAP,
+        *section("SYSTEM", [
+            line(f"  > CPU {cpu_str}    LOAD {GB}{la1:>4.2f} {la5:>4.2f} {la15:>4.2f}{G}"),
+            line(f"  > MEM {GB}{mem_used:>4}{G}/{GB}{mem_total}{G} MB    DISK {GB}{disk}{G} FREE"),
+            line(f"  > LOGS  {GB}{csvs}{G} CSV / {GB}{logs_size}{G}"),
+        ]),
+        GAP,
+        *section("BIKE STATUS", [
+            line(bike_l1),
+            line(bike_l2),
+        ]),
+        GAP,
         hdr(),
         line(f"  STATUS:  {bike_status_msg}"),
         hdr(char="="),
