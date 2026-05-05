@@ -297,14 +297,14 @@ def render(state, retry_count):
         rpm_color = g
         retry_s = f"retry {retry_count}"
         if not api_ok:
-            reason = "api offline"
+            reason = "api off"
         elif not dongle_ok:
-            reason = "dongle unreachable"
+            reason = "no dongle"
         elif mock_on:
-            reason = "mock mode"
+            reason = "mock"
         else:
-            reason = "key off / no PID response"
-        bike_secondary = f"  {ecu_tag}  ({retry_s})   awaiting: {reason}"
+            reason = "key off"
+        bike_secondary = f"  {ecu_tag}  ({retry_s})  awaiting: {reason}"
         bike_status_msg = f"{A}[ WAITING FOR BIKE ]{G}"
 
     # Build the 3-row big-digit block for SPD / RPM / GEAR.
