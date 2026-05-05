@@ -354,12 +354,16 @@ def render(state, retry_count):
         ]),
         *section("NETWORK", [
             line(f"  > wlan0  {GB}{wlan0_ssid:<16}{G} {GB}{wlan0_ip}{G}"),
+            line(),
             line(f"  > wlan1  {GB}{wlan1_ssid:<16}{G} {GB}{wlan1_ip}{G}"),
+            line(),
             line(f"  > eth0   {' ' * 17}{GB}{eth_ip}{G}"),
+            line(),
             line(f"  > AP CLIENTS .................. {GB}{ap_clients}{G}"),
         ]),
         *section("OBD LINK", [
             line(f"  > DONGLE {GB}{DONGLE_HOST}{G}:{GB}{DONGLE_PORT}{G} ..... {dongle_tag}"),
+            line(),
             line(f"  > AGE {GB}{age_str}{G}    LAST POLL {GB}{last_str}{G}"),
         ]),
         *section("STATUS", [
