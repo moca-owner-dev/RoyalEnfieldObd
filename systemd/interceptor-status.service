@@ -1,0 +1,22 @@
+[Unit]
+Description=Royal Enfield Pip-Boy LCD status monitor
+After=interceptor.service systemd-user-sessions.service
+Wants=interceptor.service
+Conflicts=getty@tty1.service
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/bin/python3 /home/pipboy/RoyalEnfieldObd/scripts/status_tui.py
+StandardInput=tty-force
+StandardOutput=tty
+StandardError=journal
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+TTYVTDisallocate=yes
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

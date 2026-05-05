@@ -17,6 +17,8 @@
 !debug/**
 !scripts/
 !scripts/**
+!systemd/
+!systemd/**
 
 # Excepciones dentro de debug
 debug/venv/
