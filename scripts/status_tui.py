@@ -50,10 +50,12 @@ def line(content=""):
 def hdr(content="", char="="):
     if not content:
         return f"{G}+{char * (WIDTH - 2)}+{RST}"
-    pad = WIDTH - 2 - visible_len(content)
+    # Pad the title with spaces so the embedded label is readable.
+    label = f" {content.strip()} "
+    pad = WIDTH - 2 - visible_len(label)
     left = pad // 2
     right = pad - left
-    return f"{G}+{char * left}{content}{char * right}+{RST}"
+    return f"{G}+{char * left}{label}{char * right}+{RST}"
 
 
 def section_break():
@@ -285,13 +287,15 @@ def render(state, retry_count):
         global_msg = f"{R}[ DEGRADED ]{G}"
 
     def section(title, content_lines):
-        # Blank line inside the box gives breathing room above content.
-        return [hdr(f" {title} "), line(), *content_lines, hdr()]
+        # Blank lines above and below content inside each box. The top
+        # border doubles as the prior section's bottom; a single closing
+        # border is appended once at the very end.
+        return [hdr(f" {title} "), line(), *content_lines, line()]
 
     lines = [
-        CLR + hdr(" ROBCO INDUSTRIES "),
-        line(f"  PIP-OS v3.4.1   {now}   UP {GB}{uptime}{G}"),
-        hdr(),
+        *section("ROBCO INDUSTRIES", [
+            line(f"  PIP-OS v3.4.1   {now}   UP {GB}{uptime}{G}"),
+        ]),
         *section("CORE SERVICES", [
             line(f"  > interceptor.service ......... {svc_tag}"),
             line(f"  > API  :8000 .................. {api_tag}"),
@@ -317,11 +321,12 @@ def render(state, retry_count):
             line(bike_l1),
             line(bike_l2),
         ]),
-        hdr(),
-        line(f"  STATUS:  {bike_status_msg}"),
+        *section("STATUS", [
+            line(f"  {bike_status_msg}"),
+        ]),
         hdr(char="="),
     ]
-    return "\n".join(lines) + RST + "\n"
+    return CLR + "\n".join(lines) + RST + "\n"
 
 
 def collect():
