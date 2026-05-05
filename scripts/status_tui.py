@@ -306,20 +306,20 @@ def render(state, retry_count):
             line(f"  > LAST POLL ..... {GB}{last_str}{G}"),
             line(f"  > DATA AGE ...... {GB}{age_str}{G}"),
         ]),
-        *section("NETWORK", [
-            line(f"  > wlan0  {GB}{wlan0_ssid:<16}{G} {GB}{wlan0_ip}{G}"),
-            line(f"  > wlan1  {GB}{wlan1_ssid:<16}{G} {GB}{wlan1_ip}{G}"),
-            line(f"  > eth0   {' ' * 17}{GB}{eth_ip}{G}"),
-            line(f"  > AP CLIENTS .................. {GB}{ap_clients}{G}"),
+        *section("BIKE STATUS", [
+            line(bike_l1),
+            line(bike_l2),
         ]),
         *section("SYSTEM", [
             line(f"  > CPU {cpu_str}    LOAD {GB}{la1:>4.2f} {la5:>4.2f} {la15:>4.2f}{G}"),
             line(f"  > MEM {GB}{mem_used:>4}{G}/{GB}{mem_total}{G} MB    DISK {GB}{disk}{G} FREE"),
             line(f"  > LOGS  {GB}{csvs}{G} CSV / {GB}{logs_size}{G}"),
         ]),
-        *section("BIKE STATUS", [
-            line(bike_l1),
-            line(bike_l2),
+        *section("NETWORK", [
+            line(f"  > wlan0  {GB}{wlan0_ssid:<16}{G} {GB}{wlan0_ip}{G}"),
+            line(f"  > wlan1  {GB}{wlan1_ssid:<16}{G} {GB}{wlan1_ip}{G}"),
+            line(f"  > eth0   {' ' * 17}{GB}{eth_ip}{G}"),
+            line(f"  > AP CLIENTS .................. {GB}{ap_clients}{G}"),
         ]),
         *section("STATUS", [
             line(f"  {bike_status_msg}"),
