@@ -37,6 +37,28 @@ REFRESH_SEC = 2.0
 
 ANSI_RE = re.compile(r"\033\[[0-9;]*m")
 
+# 3-row, 4-col ASCII font for big numerals in BIKE STATUS.
+DIGIT_FONT = {
+    "0": [" __ ", "|  |", "|__|"],
+    "1": ["    ", "  / ", " /  "],
+    "2": [" __ ", " __|", "|__ "],
+    "3": [" __ ", " __|", " __|"],
+    "4": ["    ", "|__|", "   |"],
+    "5": [" __ ", "|__ ", " __|"],
+    "6": [" __ ", "|__ ", "|__|"],
+    "7": [" __ ", "   |", "   |"],
+    "8": [" __ ", "|__|", "|__|"],
+    "9": [" __ ", "|__|", " __|"],
+    "-": ["    ", " __ ", "    "],
+    " ": ["    ", "    ", "    "],
+}
+
+
+def big_row(value: str, width: int, row: int) -> str:
+    """One of three ASCII rows for `value` right-padded to `width` characters."""
+    padded = value.rjust(width)
+    return "".join(DIGIT_FONT.get(c, DIGIT_FONT[" "])[row] + " " for c in padded)
+
 
 def visible_len(s):
     return len(ANSI_RE.sub("", s))
@@ -250,7 +272,7 @@ def render(state, retry_count):
     if stale is not None:
         age_str = f"{stale:.1f}s"
 
-    # Bike initial readings
+    # Bike readings (big digits + secondary line)
     if ecu_conn and data:
         rpm = data.get("rpm") or 0
         spd = data.get("speed") or 0
@@ -259,14 +281,21 @@ def render(state, retry_count):
         eot = data.get("eot") or 0
         bat = data.get("voltage") or 0
         tps = data.get("tps") or 0
-        bike_l1 = (f"  > RPM {GB}{rpm:>4.0f}{G}  SPD {GB}{spd:>3.0f}{G}  "
-                   f"GEAR {GB}{gear_s}{G}    THR {GB}{tps:>3.0f}{G}%")
-        bike_l2 = (f"  > EOT {GB}{eot:>3.0f}{G} C   BAT {GB}{bat:>4.1f}{G} V"
-                   f"     LAST {GB}{last_str}{G}")
-        bike_status_msg = f"{G}[ ECU ONLINE - INITIAL READINGS OK ]{G}"
+        spd_str = f"{int(spd):>3d}"
+        rpm_str = f"{int(rpm):>4d}"
+        gear_str = gear_s
+        rpm_color = R if rpm >= 7000 else GB
+        bike_secondary = (f"  EOT {GB}{eot:>3.0f}{G}C    "
+                          f"BAT {GB}{bat:>4.1f}{G}V    "
+                          f"THR {GB}{tps:>3.0f}{G}%    "
+                          f"LAST {GB}{last_str}{G}")
+        bike_status_msg = f"{G}[ ECU ONLINE - LIVE READINGS ]{G}"
     else:
-        retry_s = f"retry {retry_count}" if not ecu_conn else "ok"
-        bike_l1 = f"  > ECU LINK ........... {ecu_tag}  ({retry_s})"
+        spd_str = "---"
+        rpm_str = "----"
+        gear_str = "-"
+        rpm_color = g
+        retry_s = f"retry {retry_count}"
         if not api_ok:
             reason = "api offline"
         elif not dongle_ok:
@@ -275,8 +304,24 @@ def render(state, retry_count):
             reason = "mock mode"
         else:
             reason = "key off / no PID response"
-        bike_l2 = f"  > {g}awaiting:{G} {reason}"
+        bike_secondary = f"  {ecu_tag}  ({retry_s})   awaiting: {reason}"
         bike_status_msg = f"{A}[ WAITING FOR BIKE ]{G}"
+
+    # Build the 3-row big-digit block for SPD / RPM / GEAR.
+    big_lines = []
+    for r in range(3):
+        spd_part = f"{GB}{big_row(spd_str, 3, r)}{G}"
+        rpm_part = f"{rpm_color}{big_row(rpm_str, 4, r)}{G}"
+        gear_part = f"{GB}{big_row(gear_str, 1, r)}{G}"
+        # 3 sp + SPD(15) + 6 sp + RPM(20) + 6 sp + GEAR(5) + 3 sp = 58 inner cols
+        big_lines.append(f"   {spd_part}      {rpm_part}      {gear_part}   ")
+
+    bike_label_row = ("       SPD"
+                      "                     RPM"
+                      "                  GEAR")
+    bike_unit_row  = ("       km/h"
+                      "                  / 8500"
+                      "                      ")
 
     # Global status
     if ecu_conn:
@@ -296,30 +341,26 @@ def render(state, retry_count):
         *section("ROBCO INDUSTRIES", [
             line(f"  PIP-OS v3.4.1   {now}   UP {GB}{uptime}{G}"),
         ]),
-        *section("CORE SERVICES", [
-            line(f"  > interceptor.service ......... {svc_tag}"),
-            line(f"  > API  :8000 .................. {api_tag}"),
-            line(f"  > MOCK_OBD .................... {mock_tag}"),
-        ]),
-        *section("OBD LINK", [
-            line(f"  > DONGLE {GB}{DONGLE_HOST}{G}:{GB}{DONGLE_PORT}{G} .. {dongle_tag}"),
-            line(f"  > LAST POLL ..... {GB}{last_str}{G}"),
-            line(f"  > DATA AGE ...... {GB}{age_str}{G}"),
-        ]),
         *section("BIKE STATUS", [
-            line(bike_l1),
-            line(bike_l2),
-        ]),
-        *section("SYSTEM", [
-            line(f"  > CPU {cpu_str}    LOAD {GB}{la1:>4.2f} {la5:>4.2f} {la15:>4.2f}{G}"),
-            line(f"  > MEM {GB}{mem_used:>4}{G}/{GB}{mem_total}{G} MB    DISK {GB}{disk}{G} FREE"),
-            line(f"  > LOGS  {GB}{csvs}{G} CSV / {GB}{logs_size}{G}"),
+            line(bike_label_row),
+            line(),
+            line(big_lines[0]),
+            line(big_lines[1]),
+            line(big_lines[2]),
+            line(),
+            line(bike_unit_row),
+            line(),
+            line(bike_secondary),
         ]),
         *section("NETWORK", [
             line(f"  > wlan0  {GB}{wlan0_ssid:<16}{G} {GB}{wlan0_ip}{G}"),
             line(f"  > wlan1  {GB}{wlan1_ssid:<16}{G} {GB}{wlan1_ip}{G}"),
             line(f"  > eth0   {' ' * 17}{GB}{eth_ip}{G}"),
             line(f"  > AP CLIENTS .................. {GB}{ap_clients}{G}"),
+        ]),
+        *section("OBD LINK", [
+            line(f"  > DONGLE {GB}{DONGLE_HOST}{G}:{GB}{DONGLE_PORT}{G} ..... {dongle_tag}"),
+            line(f"  > AGE {GB}{age_str}{G}    LAST POLL {GB}{last_str}{G}"),
         ]),
         *section("STATUS", [
             line(f"  {bike_status_msg}"),
