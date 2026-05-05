@@ -110,9 +110,13 @@ def main():
                     help=f"Factor de corrección usado al grabar (default {DEFAULT_FACTOR}).")
     ap.add_argument("--min-km", type=float, default=0.5,
                     help="Ignora rides con menos de N km recorridos (default 0.5).")
+    ap.add_argument("--include-mock", action="store_true",
+                    help="Incluye rides _MOCK.csv (default: excluidos por no quemar combustible real).")
     args = ap.parse_args()
 
     paths = expand_paths(args.paths)
+    if not args.include_mock:
+        paths = [p for p in paths if "_MOCK" not in p.name]
     if not paths:
         print("nada para analizar", file=sys.stderr)
         sys.exit(1)
