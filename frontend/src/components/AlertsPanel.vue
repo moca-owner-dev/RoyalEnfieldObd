@@ -9,18 +9,20 @@ const alerts = computed(() => {
   const list = []
   const { eot, rpm, voltage } = props.data
 
-  if (eot >= 125) list.push({ level: 'crit', text: '🚨 EOT CRÍTICA: detené la moto' })
-  else if (eot >= 115) list.push({ level: 'warn', text: '⚠ EOT alta: bajá ritmo' })
+  // Adjusted EOT for 350cc: 125°C is critical, 115°C is a warning
+  if (eot >= 125) list.push({ level: 'crit', text: '🚨 CRITICAL EOT: Stop the bike' })
+  else if (eot >= 115) list.push({ level: 'warn', text: '⚠ High EOT: Reduce pace' })
 
-  if (rpm > 7200) list.push({ level: 'crit', text: `⚠ RPM en redline (${Math.round(rpm)})` })
+  // J-series Redline adjustment: Setting warning at 6500 RPM for the 350cc engine
+  if (rpm > 6500) list.push({ level: 'crit', text: `⚠ RPM in redline (${Math.round(rpm)})` })
 
   if (voltage < 12.0 && rpm > 1000)
-    list.push({ level: 'crit', text: '⚠ Voltaje bajo con motor andando — alternador?' })
+    list.push({ level: 'crit', text: '⚠ Low voltage with engine running — alternator?' })
 
-  if (voltage > 14.8) list.push({ level: 'crit', text: '⚠ Voltaje alto — regulador?' })
+  if (voltage > 14.8) list.push({ level: 'crit', text: '⚠ High voltage — regulator?' })
 
   if (eot < 60 && rpm > 4000)
-    list.push({ level: 'warn', text: '⚠ Motor frío con RPM alto — esperá que caliente' })
+    list.push({ level: 'warn', text: '⚠ Cold engine with high RPM — wait to warm up' })
 
   return list
 })
@@ -33,11 +35,12 @@ const alerts = computed(() => {
     </div>
   </div>
   <div v-else class="alerts ok">
-    <div class="alert ok">✓ Todo OK</div>
+    <div class="alert ok">✓ System OK</div>
   </div>
 </template>
 
 <style scoped>
+/* Styles remain the same to maintain the Guatemala-designed aesthetic */
 .alerts {
   display: flex;
   flex-direction: column;

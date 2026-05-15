@@ -3,9 +3,10 @@ import { computed } from 'vue'
 
 const props = defineProps({
   rpm: { type: Number, default: 0 },
-  redline: { type: Number, default: 7400 },
+  // Adjusted for J-series: Redline is lower than the 650's 7400 RPM
+  redline: { type: Number, default: 7000 },
   yellow: { type: Number, default: 6000 },
-  green: { type: Number, default: 5000 },
+  green: { type: Number, default: 4500 },
 })
 
 const rpmColor = computed(() => {
@@ -16,7 +17,7 @@ const rpmColor = computed(() => {
 
 const fillPct = computed(() => Math.min(100, (props.rpm / props.redline) * 100))
 
-// Marcas de zona en la barra
+// Zone markers on the bar (English comments)
 const greenPct = computed(() => (props.green / props.redline) * 100)
 const yellowPct = computed(() => (props.yellow / props.redline) * 100)
 </script>
@@ -28,7 +29,7 @@ const yellowPct = computed(() => (props.yellow / props.redline) * 100)
       {{ Math.round(rpm) }}
     </div>
     <div class="bar-wrap">
-      <!-- Marcas de zonas -->
+      <!-- Zone markers -->
       <div class="zone zone-green" :style="{ width: greenPct + '%' }" />
       <div class="zone zone-yellow"
            :style="{ left: greenPct + '%', width: (yellowPct - greenPct) + '%' }" />

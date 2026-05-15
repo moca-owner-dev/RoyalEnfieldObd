@@ -8,10 +8,11 @@ const props = defineProps({
 
 const status = computed(() => {
   const v = props.voltage
-  if (v < 12.0) return props.rpm > 1000 ? 'Alternador no carga' : 'Batería'
-  if (v > 14.8) return 'Regulador?'
-  if (v >= 13.2) return 'Cargando OK'
-  return 'Bajo'
+  // Translated diagnostic messages for the charging system
+  if (v < 12.0) return props.rpm > 1000 ? 'Alternator fault' : 'Battery'
+  if (v > 14.8) return 'Regulator fault?'
+  if (v >= 13.2) return 'Charging OK'
+  return 'Low'
 })
 
 const colorVar = computed(() => {
@@ -25,7 +26,8 @@ const colorVar = computed(() => {
 <template>
   <div class="gauge">
     <div class="header">
-      <span class="label">VOLTAJE</span>
+      <!-- Translated from VOLTAJE to VOLTAGE -->
+      <span class="label">VOLTAGE</span>
       <span class="status" :style="{ color: colorVar }">{{ status }}</span>
     </div>
     <div class="value" :style="{ color: colorVar }">
